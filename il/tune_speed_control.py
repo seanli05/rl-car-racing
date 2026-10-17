@@ -2,7 +2,7 @@
 
   .venv/bin/python -m il.tune_speed_control sweep [--target-speed 35] [--ks 0.03 0.04] [--seeds 0 1]
   .venv/bin/python -m il.tune_speed_control plot [--target-speed 35]   # redo metrics + plots from logs
-  .venv/bin/python -m il.tune_speed_control replay --k 0.04 [--seed 0] [--render-mode human]
+  .venv/bin/python -m il.tune_speed_control replay runs/tune_speed_control/target35/k0.04_seed0.npz
 
 Steering comes from a fixed centerline-following rule (pursuit), so runs differ only in k and seed.
 Each run is saved as one .npz with every step's applied action and car state. The env is
