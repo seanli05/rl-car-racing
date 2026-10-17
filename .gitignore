@@ -3,3 +3,5 @@ data/
 runs/
 videos/
 __pycache__/
+*.mp4
+.DS_Store
