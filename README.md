@@ -27,6 +27,34 @@ Test-drive with steering only (left/right arrows; the speed controller handles g
 python -m il.speed_control --target-speed 35
 ```
 
+Drive with the trackpad (a virtual steering wheel; Enter restarts, Esc quits) and record
+demonstrations, one `.npz` per episode:
+
+```bash
+python -m il.teleop                                # test-drive, nothing saved
+python -m il.teleop --record data/plain            # saves data/plain/ep_0000.npz, ep_0001.npz, ...
+python -m il.teleop --sensitivity 0.008 --centering 0.05 --fps 20   # tune the feel / game speed
+python -m il.teleop --view obs                     # show the 96x96 frame the policy sees
+```
+
+With `--record`, every episode is saved when it ends (lap finished, off the map, time limit, or
+Enter to restart), including partial ones; Esc quits and discards the episode in progress. Each
+uses a fresh random seed >= 1000 (0-999 are reserved for evaluation). The metadata records the seed, env config,
+teleop settings and why the episode ended; `il.episodes.load_episode(path)` returns
+`(arrays, meta)`.
+
+Watch a recorded episode (Esc stops):
+
+```bash
+python -m il.replay data/plain/ep_0000.npz                 # re-simulated from seed + actions, full view
+python -m il.replay data/plain/ep_0000.npz --view obs      # the saved 96x96 frames the policy trains on
+python -m il.replay data/plain/ep_0000.npz --fps 10        # slower (default: the recorded fps)
+```
+
+The full view re-drives the episode in a fresh env built from its metadata and checks every frame
+against the saved obs; it stops with an error if they differ (i.e. the env code changed since
+recording). `--view obs` needs no simulation, so it always works.
+
 Run the tests:
 
 ```bash
@@ -72,7 +100,8 @@ Full measurements and reasoning are in `notes/log.md` (2026-10-15 and 2026-10-16
 
 ## Layout
 
-- `il/` — project code (`obstacles.py`, `speed_control.py`, `tune_speed_control.py`)
+- `il/` — project code (`obstacles.py`, `speed_control.py`, `tune_speed_control.py`,
+  `episodes.py`, `teleop.py`, `replay.py`)
 - `tests/` — pytest tests
 - `docs/` — figures used in this README
 - `notes/log.md` — lab notebook
