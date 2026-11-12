@@ -59,3 +59,43 @@
   no gain. Why 0.04 is the edge: gas only saturates while error > 1/k = 25, so it starts easing
   off at speed 10 and the rear wheelspin is gone by the time the car reaches 35 (rear slip peaks
   ~27 vs ~33 at k=0.1). Same edge as at targets 30 and 50, so k=0.04 stays the default.
+
+## 2026-10-20
+- Added il/episodes.py: one np.savez_compressed .npz per episode, auto-numbered
+  (DATASET_DIR/ep_NNNN.npz, opened with "x" so it never overwrites). Every recording loop keeps a
+  list of make_step(...) dicts and calls save_episode once. Per-step: obs (T,96,96,3) uint8,
+  action (T,1) float32, applied_action (T,3), speed, reward, obstacle_hits, hull position / angle /
+  linear and angular velocity. Metadata is a JSON string under "meta" (loads with
+  allow_pickle=False): seed, env config read from the env itself (env_id, target_speed, k,
+  num_obstacles, obstacle_size, max_episode_steps), end_reason, terminated/truncated/lap_finished,
+  steps, timestamp, plus loop-specific extras (teleop: source, fps, sensitivity, centering, view).
+- Alignment: index t = the instant action[t] was chosen. obs[t] is the frame it was chosen from;
+  car state is read before env.step (same instant as info["speed"]); reward[t] / obstacle_hits[t]
+  are what the step produced. The final next_obs isn't saved. Tests: action[t] == f(obs[t]) for a
+  pixel-dependent policy f (a mutated loop that appends next_obs fails it), and replaying the saved
+  seed + actions through a fresh env built from the metadata reproduces every obs exactly (recorded
+  with rgb_array rendering on, replayed headless: rendering doesn't perturb the episode).
+- Added il/teleop.py: trackpad as a virtual wheel, value = clip(value * (1 - centering) +
+  sensitivity * dx, -1, 1), with dx from pygame.mouse.get_rel and the cursor grabbed + hidden (so
+  motion is unbounded). Own pygame window over render_mode="rgb_array" (human mode forces 50 FPS),
+  paced by clock.tick(--fps, default 25); physics is always 1/50 s per step. Per frame: draw obs_t,
+  tick, read trackpad, step. Steering bar drawn below the game area, never in obs. --view obs shows
+  the 96x96 obs upscaled (nearest-neighbor). --max-episode-steps defaults to 2000. Seeds: fresh
+  random >= 1000 per episode (0-999 reserved for eval). Every episode saved with --record,
+  including user_reset / user_quit ones (empty ones skipped); filter at training time.
+- Frame cost (full view): step ~7 ms + render ~8 ms + draw ~1 ms, so 25 fps has plenty of slack.
+
+## 2026-11-12
+- Teleop steering got "used up" at the window edge (couldn't turn left at start, or right after a
+  long right turn): set_grab + hidden cursor didn't enable SDL relative mode on macOS, so the hidden
+  cursor still hit the edge and get_rel returned 0. Now pygame.mouse.set_relative_mode(True)
+  (falls back to grab + hide with a warning, e.g. under the headless dummy driver).
+- Teleop defaults now --fps 35, --centering 0.07 (chosen by test-driving).
+- Esc now discards the episode in progress (not saved), so ending a session doesn't leave a short
+  user_quit stub from the track that starts after a finished lap. Enter (user_reset) still saves.
+- Added il/replay.py: watch an episode. Default re-simulates (make_env(meta) rebuilds the env from
+  the metadata, reset with the saved seed, step the saved actions) and asserts every frame equals
+  the saved obs, so it doubles as a check that the env hasn't changed since recording; a one-pixel
+  edit to a saved frame is caught at that exact step. --view obs plays the saved frames instead
+  (no simulation). Plays at the recorded fps unless --fps. test_episodes' replay test now uses
+  make_env, so it covers the function the script relies on.
